@@ -73,57 +73,59 @@
 </div>
 
 <script>
-    const supabaseUrl = 'https://zasufuyaiturzgohqkky.supabase.co';
-    const supabaseKey = 'sb_publishable_8XYWszB4Vs9nAntw3rFlvA_c4MuUyOj';
-    const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+    // 1. Initialisierung mit neuem Variablennamen 'sbClient' um Konflikte zu vermeiden
+    const sbUrl = 'https://zasufuyaiturzgohqkky.supabase.co';
+    const sbKey = 'sb_publishable_8XYWszB4Vs9nAntw3rFlvA_c4MuUyOj';
+    const sbClient = window.supabase.createClient(sbUrl, sbKey);
 
     let stockData = [];
 
+    // 2. Daten laden Funktion
     async function load() {
-        // 1. Online Aufträge laden
-        const { data: ord } = await supabase.from('kundenAnfragen').select('*').order('id', {ascending:false});
+        console.log("Synchronisiere mit Supabase...");
+
+        // Aktive Aufträge laden
+        const { data: ord } = await sbClient.from('kundenAnfragen').select('*').order('id', {ascending:false});
         document.getElementById('oList').innerHTML = ord?.map(o => `
             <tr>
-                <td><b>${o.projekt_name}</b></td>
-                <td>${o.kunde_name}</td>
-                <td style="color:var(--success); font-weight:bold">${o.final_preis || '--'} €</td>
+                <td><b>${o.projekt_name}</b><br><small>${o.kunde_name}</small></td>
+                <td><b style="color:#0070f3">${o.final_preis || '---'} €</b></td>
                 <td>
                     <button class="btn btn-orange btn-small" onclick="setPrice('${o.id}')">Preis</button>
-                    <button class="btn btn-blue btn-small" onclick="finishOrder('${o.id}')">✓ Fertig</button>
+                    <button class="btn btn-blue btn-small" onclick="finishOrder('${o.id}')">✓ Druck fertig</button>
                 </td>
             </tr>
-        `).join('') || '';
+        `).join('') || '<tr><td colspan="3">Keine aktiven Aufträge</td></tr>';
 
-        // 2. Lager laden (Robust gegen Spaltennamen)
-        const { data: sto } = await supabase.from('FilamentLager').select('*');
+        // Lager mit EK-Preisen laden
+        const { data: sto } = await sbClient.from('FilamentLager').select('*');
         stockData = sto || [];
-        document.getElementById('sList').innerHTML = stockData.map(s => {
-            // Sucht EK-Preis in verschiedenen möglichen Spalten
-            const ek = s.Preis || s.ek_preis || s.Einkauf || '-';
-            return `
+        document.getElementById('sList').innerHTML = stockData.map(s => `
             <tr>
                 <td>${s.Material}</td>
                 <td>${parseFloat(s.restGewicht || 0).toFixed(0)}g</td>
-                <td style="color:#666">${ek} €</td>
+                <td style="color:#666">${s.Preis || s.ek_preis || '-'} €</td>
                 <td><button class="btn btn-red" onclick="del('FilamentLager','${s.id}')">X</button></td>
-            </tr>`;
-        }).join('');
+            </tr>
+        `).join('');
 
+        // Dropdown für manuelles Buchen füllen
         document.getElementById('jSpu').innerHTML = '<option value="">-- Material wählen --</option>' + 
             stockData.map(s => `<option value="${s.id}">${s.Material}</option>`).join('');
 
-        // 3. Historie laden
-        const { data: his } = await supabase.from('auftragsHistorie').select('*').order('id', {ascending:false}).limit(10);
+        // Historie laden
+        const { data: his } = await sbClient.from('auftragsHistorie').select('*').order('id', {ascending:false}).limit(10);
         document.getElementById('hList').innerHTML = his?.map(h => `
             <tr>
                 <td>${h.datum}</td>
                 <td>${h.projekt}</td>
                 <td><b>${h.kosten} €</b></td>
-                <td><button class="btn btn-red btn-small" onclick="del('auftragsHistorie','${h.id}')">Löschen</button></td>
+                <td><button class="btn btn-red btn-small" onclick="del('auftragsHistorie','${h.id}')">X</button></td>
             </tr>
         `).join('') || '';
     }
 
+    // 3. Rechner Funktion
     function calc() {
         const g = parseFloat(document.getElementById('jGra').value) || 0;
         const d = parseFloat(document.getElementById('jDis').value) || 0;
@@ -131,15 +133,16 @@
         document.getElementById('jPre').innerText = total.toFixed(2).replace('.', ',') + " €";
     }
 
+    // 4. Manuelle Buchung (Zieht Filament ab)
     async function saveManual() {
         const sid = document.getElementById('jSpu').value;
         const g = parseFloat(document.getElementById('jGra').value);
         const s = stockData.find(x => x.id === sid);
-        if(!sid || !g) return alert("Fehler: Material & Gramm!");
+        if(!sid || !g) return alert("Material & Gewicht wählen!");
 
         const cleanPrice = document.getElementById('jPre').innerText.replace(' €', '').replace(',', '.');
 
-        await supabase.from('auftragsHistorie').insert([{
+        await sbClient.from('auftragsHistorie').insert([{
             projekt: document.getElementById('jPro').value,
             kunde: document.getElementById('jKun').value,
             material: s.Material,
@@ -147,44 +150,50 @@
             datum: new Date().toLocaleDateString('de-DE')
         }]);
 
-        await supabase.from('FilamentLager').update({ restGewicht: s.restGewicht - g }).eq('id', sid);
+        await sbClient.from('FilamentLager').update({ restGewicht: s.restGewicht - g }).eq('id', sid);
         load();
     }
 
+    // 5. Preis für Online-Auftrag festlegen
     async function setPrice(id) {
-        const p = prompt("Preis (z.B. 10.50):");
+        const p = prompt("Preis eingeben (z.B. 12.50):");
         if(p) {
-            await supabase.from('kundenAnfragen').update({ final_preis: p.replace(',', '.') }).eq('id', id);
+            await sbClient.from('kundenAnfragen').update({ final_preis: p.replace(',', '.') }).eq('id', id);
             load();
         }
     }
 
+    // 6. Auftrag abschließen (In Historie ohne erneuten Filament-Abzug)
     async function finishOrder(id) {
-        const { data: o } = await supabase.from('kundenAnfragen').select('*').eq('id', id).single();
-        if(!o.final_preis) return alert("Preis fehlt!");
-        await supabase.from('auftragsHistorie').insert([{
+        const { data: o } = await sbClient.from('kundenAnfragen').select('*').eq('id', id).single();
+        if(!o.final_preis) return alert("Bitte zuerst Preis festlegen!");
+        
+        await sbClient.from('auftragsHistorie').insert([{
             projekt: o.projekt_name, kunde: o.kunde_name,
             kosten: o.final_preis.toString().replace(',', '.'),
             datum: new Date().toLocaleDateString('de-DE')
         }]);
-        await supabase.from('kundenAnfragen').delete().eq('id', id);
+        await sbClient.from('kundenAnfragen').delete().eq('id', id);
         load();
     }
 
+    // 7. Lager hinzufügen
     async function addStock() {
         const m = document.getElementById('lMat').value;
         const g = document.getElementById('lGew').value;
         const p = document.getElementById('lPre').value.replace(',', '.');
         if(!m || !g) return alert("Name & Gramm!");
         
-        await supabase.from('FilamentLager').insert([{ 
+        await sbClient.from('FilamentLager').insert([{ 
             id: 's'+Date.now(), Material: m, restGewicht: g, Preis: p 
         }]);
         load();
     }
 
-    async function del(t, id) { if(confirm("Löschen?")) { await supabase.from(t).delete().eq('id', id); load(); } }
+    // 8. Löschen Funktion
+    async function del(t, id) { if(confirm("Wirklich löschen?")) { await sbClient.from(t).delete().eq('id', id); load(); } }
     
+    // Initialer Start
     load();
 </script>
 </body>
