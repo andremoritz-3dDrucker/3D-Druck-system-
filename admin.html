@@ -3,161 +3,225 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Master-Admin | 3D-Druck Steuerung</title>
+    <title>Master-Admin | 3D-Druck Pro</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root { --primary: #0056b3; --success: #28a745; --danger: #dc3545; --warning: #f39c12; }
-        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; margin: 0; padding: 20px; font-size: 14px; color: #333; }
-        .grid-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; max-width: 1600px; margin: 0 auto; }
-        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
-        h2 { margin-top: 0; padding-bottom: 10px; border-bottom: 2px solid var(--primary); font-size: 1.1em; color: var(--primary); text-transform: uppercase; letter-spacing: 0.5px; }
+        :root { --primary: #000; --success: #0070f3; --danger: #ff0000; --warning: #f5a623; }
+        body { font-family: -apple-system, system-ui, sans-serif; background: #fafafa; padding: 20px; margin: 0; font-size: 14px; }
+        .container { max-width: 1400px; margin: 0 auto; display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 20px; }
+        .card { background: white; border: 1px solid #eaeaea; border-radius: 8px; padding: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        h2 { margin-top: 0; font-size: 1rem; border-bottom: 1px solid #eee; padding-bottom: 10px; color: var(--primary); text-transform: uppercase; }
+        
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
-        th { background: #f8f9fa; font-weight: bold; }
-        .form-group { margin-bottom: 15px; }
-        label { display: block; font-size: 0.85em; margin-bottom: 5px; font-weight: bold; }
-        input, select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #fafafa; }
+        th { background: #f9f9f9; font-weight: 600; color: #666; }
+        
+        input, select { width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
         .btn { padding: 10px 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; color: white; transition: 0.2s; }
-        .btn-blue { background: var(--primary); width: 100%; }
-        .btn-green { background: var(--success); width: 100%; }
-        .btn-red { background: var(--danger); }
+        .btn-black { background: black; width: 100%; }
+        .btn-blue { background: var(--success); }
         .btn-orange { background: var(--warning); }
-        .btn-small { font-size: 11px; padding: 5px 10px; margin-right: 5px; }
-        .calc-box { background: #eef6ff; padding: 15px; border-radius: 8px; border: 1px solid #cce3ff; text-align: center; margin-top: 10px; }
-        .calc-box strong { font-size: 1.6em; color: var(--success); }
+        .btn-red { background: var(--danger); font-size: 11px; padding: 5px 8px; }
+
+        .price-tag { font-size: 1.4em; color: var(--success); font-weight: 800; display: block; margin: 10px 0; }
+        .calc-area { background: #f0f7ff; padding: 15px; border-radius: 8px; text-align: center; border: 1px solid #d0e7ff; }
+        .full { grid-column: 1 / -1; }
+        .ek-info { color: #666; font-style: italic; }
     </style>
 </head>
 <body>
 
-<div class="grid-container">
-    <div class="card">
-        <h2>📥 Aktive Online-Aufträge</h2>
+<div class="container">
+    
+    <div class="card full">
+        <h2>📥 Aktive Druckaufträge</h2>
         <table>
-            <thead><tr><th>Projekt</th><th>Preis</th><th>Aktion</th></tr></thead>
+            <thead>
+                <tr>
+                    <th>Projekt & Kunde</th>
+                    <th>Material</th>
+                    <th>Endpreis (Kunde)</th>
+                    <th>Status / Aktion</th>
+                </tr>
+            </thead>
             <tbody id="oList"></tbody>
         </table>
     </div>
 
     <div class="card">
-        <h2>⚙️ Manueller Auftrag</h2>
-        <div class="form-group"><label>Kunde & Projekt</label>
-            <input type="text" id="jKun" placeholder="Kunde">
-            <input type="text" id="jPro" placeholder="Projekt">
+        <h2>⚙️ Neue Buchung & Rechner</h2>
+        <input type="text" id="jKun" placeholder="Kunde">
+        <input type="text" id="jPro" placeholder="Projektname">
+        <select id="jSpu" onchange="calc()"></select>
+        <div style="display: flex; gap: 10px;">
+            <input type="number" id="jGra" placeholder="Gewicht (g)" oninput="calc()">
+            <input type="number" id="jDis" placeholder="Rabatt %" value="0" oninput="calc()">
         </div>
-        <div class="form-group"><label>Material</label><select id="jSpu" onchange="calc()"></select></div>
+        <div class="calc-area">
+            <small>Kundenpreis:</small>
+            <span class="price-tag" id="jPre">0,00 €</span>
+        </div>
+        <button class="btn btn-black" style="margin-top:10px" onclick="saveManual()">Auftrag & Filament buchen</button>
+    </div>
+
+    <div class="card">
+        <h2>📦 Lagerbestand & EK-Preise</h2>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-            <input type="number" id="jGra" placeholder="Gramm" oninput="calc()">
-            <input type="number" id="jDis" value="0" oninput="calc()">
+            <input type="text" id="lMat" placeholder="Filament Name">
+            <input type="number" id="lGew" placeholder="Gramm (z.B. 1000)">
         </div>
-        <div class="calc-box"><strong><span id="jPre">0,00</span> €</strong></div>
-        <button class="btn btn-green" style="margin-top:10px;" onclick="saveManualJob()">Buchen & Abziehen</button>
+        <input type="number" id="lPre" step="0.01" placeholder="Einkaufspreis (€ EK)">
+        <button class="btn btn-black" onclick="addStock()">Neue Spule anlegen</button>
+        
+        <table id="sTable">
+            <thead>
+                <tr>
+                    <th>Material</th>
+                    <th>Rest</th>
+                    <th>EK (€)</th>
+                    <th>Aktion</th>
+                </tr>
+            </thead>
+            <tbody id="sList"></tbody>
+        </table>
     </div>
 
-    <div class="card">
-        <h2>📦 Lager</h2>
-        <table style="font-size: 0.85em;"><tbody id="sList"></tbody></table>
+    <div class="card full">
+        <h2>🗂️ Historie (Abgeschlossen)</h2>
+        <table id="hTable">
+            <thead>
+                <tr>
+                    <th>Datum</th>
+                    <th>Projekt</th>
+                    <th>Kunde</th>
+                    <th>Preis (€)</th>
+                    <th>Löschen</th>
+                </tr>
+            </thead>
+            <tbody id="hList"></tbody>
+        </table>
     </div>
 
-    <div class="card">
-        <h2>🗂️ Historie</h2>
-        <table id="hList"></table>
-    </div>
 </div>
 
 <script>
     const supabaseUrl = 'https://zasufuyaiturzgohqkky.supabase.co';
     const supabaseKey = 'sb_publishable_8XYWszB4Vs9nAntw3rFlvA_c4MuUyOj';
-    const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+    const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
 
     let stockData = [];
-    let currentTotalNumeric = 0;
 
     async function load() {
-        // Aufträge
-        const { data: ord } = await supabaseClient.from('kundenAnfragen').select('*').order('id', {ascending:false});
+        // Online Aufträge
+        const { data: ord } = await supabase.from('kundenAnfragen').select('*').order('id', {ascending:false});
         document.getElementById('oList').innerHTML = ord?.map(o => `
             <tr>
-                <td><b>${o.projekt_name}</b></td>
-                <td>${o.final_preis || '---'} €</td>
+                <td><b>${o.projekt_name}</b><br><small>${o.kunde_name}</small></td>
+                <td>${o.gewuenschte_farbe}</td>
+                <td><b style="color:var(--success)">${o.final_preis || '---'} €</b></td>
                 <td>
-                    <button class="btn btn-orange btn-small" onclick="setOnlinePrice('${o.id}')">$</button>
-                    <button class="btn btn-green btn-small" onclick="finishOnlineOrder('${o.id}')">✓</button>
+                    <button class="btn btn-orange btn-small" onclick="setPrice('${o.id}')">Preis</button>
+                    <button class="btn btn-blue btn-small" onclick="finishOrder('${o.id}')">✓ Fertig</button>
                 </td>
-            </tr>`).join('') || '';
+            </tr>
+        `).join('') || '';
 
-        // Lager
-        const { data: sto } = await supabaseClient.from('FilamentLager').select('*');
+        // Lager mit EK Anzeige
+        const { data: sto } = await supabase.from('FilamentLager').select('*');
         stockData = sto || [];
-        document.getElementById('sList').innerHTML = sto?.map(s => `<tr><td>${s.Material}</td><td>${parseFloat(s.restGewicht).toFixed(0)}g</td><td><button class="btn btn-red btn-small" onclick="del('FilamentLager','${s.id}')">X</button></td></tr>`).join('') || '';
-        document.getElementById('jSpu').innerHTML = '<option value="">-- wählen --</option>' + sto?.map(s => `<option value="${s.id}">${s.Material}</option>`).join('');
+        document.getElementById('sList').innerHTML = sto?.map(s => `
+            <tr>
+                <td>${s.Material}</td>
+                <td>${parseFloat(s.restGewicht).toFixed(0)}g</td>
+                <td class="ek-info">${s.Preis ? s.Preis + ' €' : '-'}</td>
+                <td><button class="btn btn-red" onclick="del('FilamentLager','${s.id}')">X</button></td>
+            </tr>
+        `).join('') || '';
+        document.getElementById('jSpu').innerHTML = '<option value="">-- Material wählen --</option>' + sto?.map(s => `<option value="${s.id}">${s.Material}</option>`).join('');
 
         // Historie
-        const { data: his } = await supabaseClient.from('auftragsHistorie').select('*').limit(10).order('id', {ascending:false});
-        document.getElementById('hList').innerHTML = his?.map(h => `<tr><td>${h.projekt}</td><td>${h.kosten} €</td><td><button class="btn btn-red btn-small" onclick="del('auftragsHistorie','${h.id}')">X</button></td></tr>`).join('') || '';
+        const { data: his } = await supabase.from('auftragsHistorie').select('*').order('id', {ascending:false}).limit(15);
+        document.getElementById('hList').innerHTML = his?.map(h => `
+            <tr>
+                <td>${h.datum}</td>
+                <td>${h.projekt}</td>
+                <td>${h.kunde}</td>
+                <td><b>${h.kosten} €</b></td>
+                <td><button class="btn btn-red" onclick="del('auftragsHistorie','${h.id}')">Löschen</button></td>
+            </tr>
+        `).join('') || '';
     }
 
     function calc() {
         const g = parseFloat(document.getElementById('jGra').value) || 0;
         const d = parseFloat(document.getElementById('jDis').value) || 0;
-        currentTotalNumeric = ((g * 0.10) + 5.00) * (1 - d/100);
-        document.getElementById('jPre').innerText = currentTotalNumeric.toFixed(2).replace('.', ',');
+        const total = ((g * 0.10) + 5.00) * (1 - d/100);
+        document.getElementById('jPre').innerText = total.toFixed(2).replace('.', ',') + " €";
     }
 
-    async function saveManualJob() {
+    async function saveManual() {
         const sid = document.getElementById('jSpu').value;
         const g = parseFloat(document.getElementById('jGra').value);
         const s = stockData.find(x => x.id === sid);
-        if(!sid || !g) return alert("Fehler!");
+        if(!sid || !g) return alert("Material & Gewicht fehlen!");
 
-        const { error } = await supabaseClient.from('auftragsHistorie').insert([{
+        const cleanPrice = document.getElementById('jPre').innerText.replace(' €', '').replace(',', '.');
+
+        await supabase.from('auftragsHistorie').insert([{
             projekt: document.getElementById('jPro').value,
             kunde: document.getElementById('jKun').value,
             material: s.Material,
-            verbrauchG: g,
-            kosten: currentTotalNumeric.toFixed(2),
-            datum: new Date().toLocaleDateString('de-DE')
-        }]);
-
-        if(!error) {
-            await supabaseClient.from('FilamentLager').update({ restGewicht: parseFloat(s.restGewicht) - g }).eq('id', sid);
-            load();
-        } else alert(error.message);
-    }
-
-    async function setOnlinePrice(id) {
-        let p = prompt("Preis (z.B. 15.50):");
-        if(p) {
-            p = p.replace(',', '.'); // Punkt erzwingen
-            await supabaseClient.from('kundenAnfragen').update({ final_preis: p, status: 'Preis fixiert' }).eq('id', id);
-            load();
-        }
-    }
-
-    async function finishOnlineOrder(id) {
-        const { data: o } = await supabaseClient.from('kundenAnfragen').select('*').eq('id', id).single();
-        if(!o || !o.final_preis) return alert("Bitte zuerst Preis festlegen!");
-        
-        // Preis säubern (Komma zu Punkt) für numeric-Feld
-        const cleanPrice = o.final_preis.toString().replace(',', '.');
-
-        const { error: histError } = await supabaseClient.from('auftragsHistorie').insert([{
-            projekt: o.projekt_name,
-            kunde: o.kunde_name,
-            material: o.gewuenschte_farbe,
-            verbrauchG: o.gramm || 0,
             kosten: cleanPrice,
             datum: new Date().toLocaleDateString('de-DE')
         }]);
 
-        if (histError) {
-            alert("Fehler beim Verschieben: " + histError.message);
-        } else {
-            await supabaseClient.from('kundenAnfragen').delete().eq('id', id);
+        await supabase.from('FilamentLager').update({ restGewicht: s.restGewicht - g }).eq('id', sid);
+        alert("Gebucht!"); load();
+    }
+
+    async function setPrice(id) {
+        const p = prompt("Endpreis eingeben (z.B. 15,50):");
+        if(p) {
+            const cleanP = p.replace(',', '.');
+            await supabase.from('kundenAnfragen').update({ final_preis: cleanP }).eq('id', id);
             load();
         }
     }
 
-    async function del(t, id) { if(confirm("Löschen?")) { await supabaseClient.from(t).delete().eq('id', id); load(); } }
+    async function finishOrder(id) {
+        const { data: o } = await supabase.from('kundenAnfragen').select('*').eq('id', id).single();
+        if(!o.final_preis) return alert("Bitte zuerst Preis festlegen!");
+        await supabase.from('auftragsHistorie').insert([{
+            projekt: o.projekt_name,
+            kunde: o.kunde_name,
+            kosten: o.final_preis.toString().replace(',', '.'),
+            datum: new Date().toLocaleDateString('de-DE')
+        }]);
+        await supabase.from('kundenAnfragen').delete().eq('id', id);
+        load();
+    }
+
+    async function addStock() {
+        const m = document.getElementById('lMat').value;
+        const g = document.getElementById('lGew').value;
+        const p = document.getElementById('lPre').value.replace(',', '.');
+        if(!m || !g) return alert("Material & Gewicht fehlen!");
+        
+        await supabase.from('FilamentLager').insert([{ 
+            id: 's'+Date.now(), 
+            Material: m, 
+            restGewicht: g, 
+            Preis: p 
+        }]);
+        load();
+        // Reset Felder
+        document.getElementById('lMat').value = "";
+        document.getElementById('lGew').value = "1000";
+        document.getElementById('lPre').value = "";
+    }
+
+    async function del(t, id) { if(confirm("Löschen?")) { await supabase.from(t).delete().eq('id', id); load(); } }
+    
     load();
 </script>
 </body>
