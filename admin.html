@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Master-Admin | 3D-Druck Pro</title>
+    <title>3D-Admin | Lager & Aufträge</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root { --primary: #000; --success: #0070f3; --danger: #ff0000; --warning: #f5a623; }
@@ -11,97 +11,65 @@
         .container { max-width: 1400px; margin: 0 auto; display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 20px; }
         .card { background: white; border: 1px solid #eaeaea; border-radius: 8px; padding: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
         h2 { margin-top: 0; font-size: 1rem; border-bottom: 1px solid #eee; padding-bottom: 10px; color: var(--primary); text-transform: uppercase; }
-        
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         th, td { padding: 12px; text-align: left; border-bottom: 1px solid #fafafa; }
         th { background: #f9f9f9; font-weight: 600; color: #666; }
-        
         input, select { width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
         .btn { padding: 10px 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; color: white; transition: 0.2s; }
         .btn-black { background: black; width: 100%; }
         .btn-blue { background: var(--success); }
         .btn-orange { background: var(--warning); }
         .btn-red { background: var(--danger); font-size: 11px; padding: 5px 8px; }
-
-        .price-tag { font-size: 1.4em; color: var(--success); font-weight: 800; display: block; margin: 10px 0; }
-        .calc-area { background: #f0f7ff; padding: 15px; border-radius: 8px; text-align: center; border: 1px solid #d0e7ff; }
+        .calc-area { background: #f0f7ff; padding: 15px; border-radius: 8px; text-align: center; border: 1px solid #d0e7ff; margin-bottom: 10px; }
+        .price-tag { font-size: 1.4em; color: var(--success); font-weight: 800; }
         .full { grid-column: 1 / -1; }
-        .ek-info { color: #666; font-style: italic; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    
     <div class="card full">
-        <h2>📥 Aktive Druckaufträge</h2>
+        <h2>📥 Warteschlange (Druckaufträge)</h2>
         <table>
-            <thead>
-                <tr>
-                    <th>Projekt & Kunde</th>
-                    <th>Material</th>
-                    <th>Endpreis (Kunde)</th>
-                    <th>Status / Aktion</th>
-                </tr>
-            </thead>
+            <thead><tr><th>Projekt</th><th>Kunde</th><th>Preis</th><th>Aktion</th></tr></thead>
             <tbody id="oList"></tbody>
         </table>
     </div>
 
     <div class="card">
-        <h2>⚙️ Neue Buchung & Rechner</h2>
+        <h2>⚙️ Preisrechner & Buchung</h2>
         <input type="text" id="jKun" placeholder="Kunde">
-        <input type="text" id="jPro" placeholder="Projektname">
+        <input type="text" id="jPro" placeholder="Projekt">
         <select id="jSpu" onchange="calc()"></select>
         <div style="display: flex; gap: 10px;">
-            <input type="number" id="jGra" placeholder="Gewicht (g)" oninput="calc()">
+            <input type="number" id="jGra" placeholder="Gramm" oninput="calc()">
             <input type="number" id="jDis" placeholder="Rabatt %" value="0" oninput="calc()">
         </div>
-        <div class="calc-area">
-            <small>Kundenpreis:</small>
-            <span class="price-tag" id="jPre">0,00 €</span>
-        </div>
-        <button class="btn btn-black" style="margin-top:10px" onclick="saveManual()">Auftrag & Filament buchen</button>
+        <div class="calc-area"><small>Kundenpreis:</small><br><span class="price-tag" id="jPre">0,00 €</span></div>
+        <button class="btn btn-black" onclick="saveManual()">Auftrag & Filament buchen</button>
     </div>
 
     <div class="card">
-        <h2>📦 Lagerbestand & EK-Preise</h2>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-            <input type="text" id="lMat" placeholder="Filament Name">
-            <input type="number" id="lGew" placeholder="Gramm (z.B. 1000)">
+        <h2>📦 Lager & EK-Preise</h2>
+        <div style="display: flex; gap: 10px;">
+            <input type="text" id="lMat" placeholder="Material Name">
+            <input type="number" id="lGew" placeholder="Gramm">
         </div>
         <input type="number" id="lPre" step="0.01" placeholder="Einkaufspreis (€ EK)">
-        <button class="btn btn-black" onclick="addStock()">Neue Spule anlegen</button>
-        
-        <table id="sTable">
-            <thead>
-                <tr>
-                    <th>Material</th>
-                    <th>Rest</th>
-                    <th>EK (€)</th>
-                    <th>Aktion</th>
-                </tr>
-            </thead>
+        <button class="btn btn-black" onclick="addStock()" style="margin-bottom: 15px;">Spule hinzufügen</button>
+        <table>
+            <thead><tr><th>Material</th><th>Rest</th><th>EK (€)</th><th>X</th></tr></thead>
             <tbody id="sList"></tbody>
         </table>
     </div>
 
     <div class="card full">
         <h2>🗂️ Historie (Abgeschlossen)</h2>
-        <table id="hTable">
-            <thead>
-                <tr>
-                    <th>Datum</th>
-                    <th>Projekt</th>
-                    <th>Kunde</th>
-                    <th>Preis (€)</th>
-                    <th>Löschen</th>
-                </tr>
-            </thead>
+        <table>
+            <thead><tr><th>Datum</th><th>Projekt</th><th>Preis</th><th>Aktion</th></tr></thead>
             <tbody id="hList"></tbody>
         </table>
     </div>
-
 </div>
 
 <script>
@@ -112,13 +80,13 @@
     let stockData = [];
 
     async function load() {
-        // Online Aufträge
+        // 1. Online Aufträge laden
         const { data: ord } = await supabase.from('kundenAnfragen').select('*').order('id', {ascending:false});
         document.getElementById('oList').innerHTML = ord?.map(o => `
             <tr>
-                <td><b>${o.projekt_name}</b><br><small>${o.kunde_name}</small></td>
-                <td>${o.gewuenschte_farbe}</td>
-                <td><b style="color:var(--success)">${o.final_preis || '---'} €</b></td>
+                <td><b>${o.projekt_name}</b></td>
+                <td>${o.kunde_name}</td>
+                <td style="color:var(--success); font-weight:bold">${o.final_preis || '--'} €</td>
                 <td>
                     <button class="btn btn-orange btn-small" onclick="setPrice('${o.id}')">Preis</button>
                     <button class="btn btn-blue btn-small" onclick="finishOrder('${o.id}')">✓ Fertig</button>
@@ -126,28 +94,32 @@
             </tr>
         `).join('') || '';
 
-        // Lager mit EK Anzeige
+        // 2. Lager laden (Robust gegen Spaltennamen)
         const { data: sto } = await supabase.from('FilamentLager').select('*');
         stockData = sto || [];
-        document.getElementById('sList').innerHTML = sto?.map(s => `
+        document.getElementById('sList').innerHTML = stockData.map(s => {
+            // Sucht EK-Preis in verschiedenen möglichen Spalten
+            const ek = s.Preis || s.ek_preis || s.Einkauf || '-';
+            return `
             <tr>
                 <td>${s.Material}</td>
-                <td>${parseFloat(s.restGewicht).toFixed(0)}g</td>
-                <td class="ek-info">${s.Preis ? s.Preis + ' €' : '-'}</td>
+                <td>${parseFloat(s.restGewicht || 0).toFixed(0)}g</td>
+                <td style="color:#666">${ek} €</td>
                 <td><button class="btn btn-red" onclick="del('FilamentLager','${s.id}')">X</button></td>
-            </tr>
-        `).join('') || '';
-        document.getElementById('jSpu').innerHTML = '<option value="">-- Material wählen --</option>' + sto?.map(s => `<option value="${s.id}">${s.Material}</option>`).join('');
+            </tr>`;
+        }).join('');
 
-        // Historie
-        const { data: his } = await supabase.from('auftragsHistorie').select('*').order('id', {ascending:false}).limit(15);
+        document.getElementById('jSpu').innerHTML = '<option value="">-- Material wählen --</option>' + 
+            stockData.map(s => `<option value="${s.id}">${s.Material}</option>`).join('');
+
+        // 3. Historie laden
+        const { data: his } = await supabase.from('auftragsHistorie').select('*').order('id', {ascending:false}).limit(10);
         document.getElementById('hList').innerHTML = his?.map(h => `
             <tr>
                 <td>${h.datum}</td>
                 <td>${h.projekt}</td>
-                <td>${h.kunde}</td>
                 <td><b>${h.kosten} €</b></td>
-                <td><button class="btn btn-red" onclick="del('auftragsHistorie','${h.id}')">Löschen</button></td>
+                <td><button class="btn btn-red btn-small" onclick="del('auftragsHistorie','${h.id}')">Löschen</button></td>
             </tr>
         `).join('') || '';
     }
@@ -163,7 +135,7 @@
         const sid = document.getElementById('jSpu').value;
         const g = parseFloat(document.getElementById('jGra').value);
         const s = stockData.find(x => x.id === sid);
-        if(!sid || !g) return alert("Material & Gewicht fehlen!");
+        if(!sid || !g) return alert("Fehler: Material & Gramm!");
 
         const cleanPrice = document.getElementById('jPre').innerText.replace(' €', '').replace(',', '.');
 
@@ -176,24 +148,22 @@
         }]);
 
         await supabase.from('FilamentLager').update({ restGewicht: s.restGewicht - g }).eq('id', sid);
-        alert("Gebucht!"); load();
+        load();
     }
 
     async function setPrice(id) {
-        const p = prompt("Endpreis eingeben (z.B. 15,50):");
+        const p = prompt("Preis (z.B. 10.50):");
         if(p) {
-            const cleanP = p.replace(',', '.');
-            await supabase.from('kundenAnfragen').update({ final_preis: cleanP }).eq('id', id);
+            await supabase.from('kundenAnfragen').update({ final_preis: p.replace(',', '.') }).eq('id', id);
             load();
         }
     }
 
     async function finishOrder(id) {
         const { data: o } = await supabase.from('kundenAnfragen').select('*').eq('id', id).single();
-        if(!o.final_preis) return alert("Bitte zuerst Preis festlegen!");
+        if(!o.final_preis) return alert("Preis fehlt!");
         await supabase.from('auftragsHistorie').insert([{
-            projekt: o.projekt_name,
-            kunde: o.kunde_name,
+            projekt: o.projekt_name, kunde: o.kunde_name,
             kosten: o.final_preis.toString().replace(',', '.'),
             datum: new Date().toLocaleDateString('de-DE')
         }]);
@@ -205,19 +175,12 @@
         const m = document.getElementById('lMat').value;
         const g = document.getElementById('lGew').value;
         const p = document.getElementById('lPre').value.replace(',', '.');
-        if(!m || !g) return alert("Material & Gewicht fehlen!");
+        if(!m || !g) return alert("Name & Gramm!");
         
         await supabase.from('FilamentLager').insert([{ 
-            id: 's'+Date.now(), 
-            Material: m, 
-            restGewicht: g, 
-            Preis: p 
+            id: 's'+Date.now(), Material: m, restGewicht: g, Preis: p 
         }]);
         load();
-        // Reset Felder
-        document.getElementById('lMat').value = "";
-        document.getElementById('lGew').value = "1000";
-        document.getElementById('lPre').value = "";
     }
 
     async function del(t, id) { if(confirm("Löschen?")) { await supabase.from(t).delete().eq('id', id); load(); } }
